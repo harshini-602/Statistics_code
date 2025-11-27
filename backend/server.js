@@ -9,7 +9,7 @@ require('dotenv').config({ path: path.resolve(__dirname, '.env') });
 const app = express();
 
 const PORT = process.env.PORT || 5000;
-const MONGO_URI = process.env.MONGO_URI || "mongodb+srv://harshini:harshini@cluster0.lf7qayt.mongodb.net/Blogify";
+const MONGO_URI = process.env.MONGO_URI ;
 
 // Connect to MongoDB
 if (!MONGO_URI) {
