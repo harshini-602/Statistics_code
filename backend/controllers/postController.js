@@ -74,13 +74,22 @@ const getPostById = async (req, res) => {
       return res.status(404).json({ message: 'Post not found' });
     }
 
-    // Allow author to see their drafts
+    // Check if post is published or user is the author
+    let isAuthor = false;
     if (post.status !== 'published') {
       const token = req.cookies?.token || (req.headers.authorization && req.headers.authorization.split(' ')[1]);
       const payload = token ? verifyToken(token) : null;
-      if (!payload || payload.userId.toString() !== post.author._id.toString()) {
+      isAuthor = payload && payload.userId.toString() === post.author._id.toString();
+      
+      if (!isAuthor) {
         return res.status(404).json({ message: 'Post not found' });
       }
+    }
+
+    // Increment view count only if post is published and viewer is not the author
+    if (post.status === 'published' && !isAuthor) {
+      post.views = (post.views || 0) + 1;
+      await post.save();
     }
 
     res.json(post);
@@ -89,7 +98,6 @@ const getPostById = async (req, res) => {
     res.status(500).json({ message: 'Server error' });
   }
 };
-
 const createPost = async (req, res) => {
   try {
     const { title, content, categories, tags, status } = req.body;
@@ -212,4 +220,88 @@ const likePost = async (req, res) => {
   }
 };
 
-module.exports = { getPosts, getPostById, createPost, updatePost, deletePost, likePost };
+const trackView = async (req, res) => {
+  try {
+    const { id } = req.params;
+    // Accept timeSpent (seconds) and optional sessionId from client
+    let timeSpent = Number(req.body.timeSpent || 0);
+    if (!Number.isFinite(timeSpent) || timeSpent < 0) timeSpent = 0;
+    timeSpent = Math.round(timeSpent);
+    const sessionId = req.body.sessionId ? String(req.body.sessionId).slice(0, 200) : null;
+
+    const post = await Post.findById(id);
+    if (!post) return res.status(404).json({ message: 'Post not found' });
+
+    // Obtain optional userId from token
+    let userId = null;
+    try {
+      const token = req.cookies?.token || (req.headers.authorization && req.headers.authorization.split(' ')[1]);
+      const payload = token ? verifyToken(token) : null;
+      userId = payload?.userId || null;
+    } catch (e) {
+      userId = null;
+    }
+
+    // client metadata
+    const ip = req.headers['x-forwarded-for'] || req.ip || null;
+    const userAgent = req.get('User-Agent') || null;
+
+    // Ensure views array exists
+    post.views = post.views || [];
+
+    // Merge logic: prefer userId, then sessionId. If found, update time and viewedAt.
+    let merged = false;
+    if (userId) {
+      for (let i = post.views.length - 1; i >= 0; i--) {
+        const v = post.views[i];
+        if (v.userId && v.userId.toString() === userId.toString()) {
+          v.timeSpent = (v.timeSpent || 0) + timeSpent;
+          v.viewedAt = new Date();
+          // update client metadata if present
+          if (ip) v.ip = ip;
+          if (userAgent) v.userAgent = userAgent;
+          merged = true;
+          break;
+        }
+      }
+    }
+
+    if (!merged && sessionId) {
+      for (let i = post.views.length - 1; i >= 0; i--) {
+        const v = post.views[i];
+        if (!v.userId && v.sessionId && v.sessionId === sessionId) {
+          v.timeSpent = (v.timeSpent || 0) + timeSpent;
+          v.viewedAt = new Date();
+          if (ip) v.ip = ip;
+          if (userAgent) v.userAgent = userAgent;
+          merged = true;
+          break;
+        }
+      }
+    }
+
+    if (!merged) {
+      // push new view record
+      post.views.push({
+        userId: userId || undefined,
+        viewedAt: new Date(),
+        timeSpent: timeSpent || 0,
+        sessionId: sessionId || undefined,
+        ip: ip || undefined,
+        userAgent: userAgent || undefined
+      });
+    }
+
+    await post.save();
+
+    // Return lightweight analytics to allow quick UI updates
+    const totalViews = post.views.length;
+    const totalTime = post.views.reduce((s, v) => s + (v.timeSpent || 0), 0);
+    res.json({ message: 'View tracked', totalViews, totalTime });
+  } catch (error) {
+    console.error('trackView error:', error);
+    res.status(500).json({ message: 'Server error' });
+  }
+};
+
+module.exports = { getPosts, getPostById, createPost, updatePost, deletePost, likePost, trackView };

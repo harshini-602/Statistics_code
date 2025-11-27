@@ -20,7 +20,7 @@ const postSchema = new mongoose.Schema({
     ref: 'Category'
   }],
   tags: [{
-    type: String // Accept both ObjectId and plain string tags
+    type: String
   }],
   status: {
     type: String,
@@ -28,7 +28,7 @@ const postSchema = new mongoose.Schema({
     default: 'draft'
   },
   images: [{
-    type: String // file paths or URLs
+    type: String
   }],
   likes: [{
     type: mongoose.Schema.Types.ObjectId,
@@ -40,6 +40,10 @@ const postSchema = new mongoose.Schema({
     ref: 'User',
     default: []
   }],
+  views: {
+    type: Number,
+    default: 0
+  },
   createdAt: {
     type: Date,
     default: Date.now

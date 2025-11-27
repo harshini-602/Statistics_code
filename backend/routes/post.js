@@ -1,7 +1,7 @@
 const express = require('express');
 const { body } = require('express-validator');
 const router = express.Router();
-const { getPosts, getPostById, createPost, updatePost, deletePost, likePost } = require('../controllers/postController');
+const { getPosts, getPostById, createPost, updatePost, deletePost, likePost, trackView } = require('../controllers/postController');
 const upload = require('../middlewares/upload');
 const { authenticate } = require('../middlewares/auth');
 const { handleValidation } = require('../middlewares/validation');
@@ -21,6 +21,7 @@ router.put('/:id', authenticate, upload.array('images', 5), [
 ], updatePost);
 router.delete('/:id', authenticate, deletePost);
 router.post('/:id/like', authenticate, likePost);
+router.post('/:id/track-view', trackView);
 
 module.exports = router;
 

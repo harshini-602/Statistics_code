@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { useParams, useNavigate, Link } from 'react-router-dom';
 import axios from '../api/axios';
 import Loader from '../components/Loader';
@@ -13,6 +13,7 @@ const SinglePost = () => {
   const [loading, setLoading] = useState(true);
   const [likes, setLikes] = useState(0);
   const [commentsCount, setCommentsCount] = useState(0);
+  const startTimeRef = useRef(Date.now());
 
   useEffect(() => {
     const fetchPost = async () => {
@@ -26,11 +27,20 @@ const SinglePost = () => {
         setCommentsCount(Array.isArray(commentsRes.data) ? commentsRes.data.length : 0);
       } catch (err) {
         console.error('Error loading post:', err);
-      } finally {
         setLoading(false);
       }
     };
     fetchPost();
+  }, [id]);
+
+  // Track view when component unmounts or user navigates away
+  useEffect(() => {
+    return () => {
+      const timeSpent = Math.round((Date.now() - startTimeRef.current) / 1000); // in seconds
+      if (timeSpent > 1) { // Only track if spent more than 1 second
+        axios.post(`/api/posts/${id}/track-view`, { timeSpent }).catch(err => console.error('Error tracking view:', err));
+      }
+    };
   }, [id]);
 
   const handleLike = async () => {
@@ -175,6 +185,17 @@ const SinglePost = () => {
               prose-pre:bg-slate-900 prose-pre:text-slate-100"
             dangerouslySetInnerHTML={{ __html: post.content }} 
           />
+        </div>
+
+        {/* Debug: show raw HTML & length (temporary) */}
+        <div className="max-w-6xl mx-auto px-4 mb-8">
+          <details className="bg-white/90 p-4 rounded-lg shadow">
+            <summary className="font-semibold cursor-pointer">Debug: Raw HTML & Length</summary>
+            <div className="mt-3 text-sm text-slate-700">
+              <p className="mb-2"><strong>Content length:</strong> {post.content ? post.content.length : 0}</p>
+              <pre className="whitespace-pre-wrap max-h-64 overflow-auto text-xs">{post.content}</pre>
+            </div>
+          </details>
         </div>
 
         {/* Tags */}

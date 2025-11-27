@@ -5,6 +5,7 @@ import { FiMenu, FiHome, FiFileText, FiPlusCircle, FiMessageCircle, FiBarChart2,
 import axios from '../api/axios';
 import Loader from '../components/Loader';
 import Card from '../components/Card';
+import Statistics from '../components/Statistics';
 import { useAuth } from '../context/AuthContext';
 
 // Event context for dashboard refresh
@@ -32,6 +33,7 @@ export function DashboardRefreshProvider({ children }) {
 const sidebarItems = [
   { label: 'Dashboard Overview', icon: <FiHome />, key: 'overview' },
   { label: 'My Posts', icon: <FiFileText />, key: 'posts' },
+  { label: 'Statistics', icon: <FiBarChart2 />, key: 'statistics' },
   { label: 'Create New Post', icon: <FiPlusCircle />, key: 'create' },
   { label: 'Settings', icon: <FiSettings />, key: 'settings' },
   { label: 'Logout', icon: <FiLogOut />, key: 'logout' },
@@ -200,6 +202,8 @@ function Dashboard() {
   const [loading, setLoading] = useState(true);
   const [stats, setStats] = useState(null);
   const [posts, setPosts] = useState([]);
+  const [topPosts, setTopPosts] = useState([]);
+  const [viewsChartData, setViewsChartData] = useState([]);
   const { user } = useAuth();
   const location = useLocation();
 
@@ -234,9 +238,13 @@ function Dashboard() {
       const res = await axios.get('/api/dashboard/user');
       setStats(res.data.stats);
       setPosts(res.data.posts || []);
+      setTopPosts(res.data.topPosts || []);
+      setViewsChartData(res.data.viewsChartData || []);
     } catch (e) {
       setStats(null);
       setPosts([]);
+      setTopPosts([]);
+      setViewsChartData([]);
     } finally {
       setLoading(false);
     }
@@ -290,6 +298,10 @@ function Dashboard() {
             <h1 className="text-2xl font-bold mb-6">My Posts</h1>
             <PostsTable posts={posts} />
           </>
+        )}
+        {/* Statistics */}
+        {selected === 'statistics' && (
+          <Statistics stats={stats} posts={posts} topPosts={topPosts} viewsChartData={viewsChartData} />
         )}
         {/* Create New Post */}
         {selected === 'create' && (
